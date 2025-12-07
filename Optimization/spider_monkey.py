@@ -10,11 +10,13 @@ q_table_path = os.path.join(base_dir, "RL_Agent", "q_table.pkl")
 with open(q_table_path, "rb") as f:
     q_table = pickle.load(f)
 
+
 def fitness(vm_allocation, cpu, mem):
     ideal_util = 60
     if vm_allocation == 0:
         return float('inf')
     return abs(cpu / vm_allocation - ideal_util) + abs(mem / vm_allocation - ideal_util)
+
 
 def run_optimization(df, q_table, pop_size=10, iterations=30):
     lower_bound, upper_bound = 5, 20
@@ -25,9 +27,19 @@ def run_optimization(df, q_table, pop_size=10, iterations=30):
     cost_list = []
     energy_list = []
 
+    #  NEW: logs for CPU & Memory per iteration
+    cpu_log = []
+    mem_log = []
+
+    n_rows = len(df)
+
     for iteration in range(iterations):
-        cpu = df["CPU Utilization (%)"].iloc[iteration % len(df)]
-        mem = df["Memory Utilization (%)"].iloc[iteration % len(df)]
+        # cycle through df rows safely even if df is very small
+        cpu = df["CPU Utilization (%)"].iloc[iteration % n_rows]
+        mem = df["Memory Utilization (%)"].iloc[iteration % n_rows]
+
+        cpu_log.append(cpu)
+        mem_log.append(mem)
 
         fitness_scores = []
         for vm in monkeys:
@@ -71,9 +83,10 @@ def run_optimization(df, q_table, pop_size=10, iterations=30):
         monkeys = np.array(new_monkeys)
         print(f"Iteration {iteration+1}: Best VM = {best_vm} | Penalty = {best_penalty:.2f}")
 
+    #  All lists have SAME length = iterations
     result_df = pd.DataFrame({
-        "CPU Utilization (%)": df["CPU Utilization (%)"].iloc[:iterations].values,
-        "Memory Utilization (%)": df["Memory Utilization (%)"].iloc[:iterations].values,
+        "CPU Utilization (%)": cpu_log,
+        "Memory Utilization (%)": mem_log,
         "Optimized VM Count": vm_trend,
         "Cost": cost_list,
         "Energy": energy_list
